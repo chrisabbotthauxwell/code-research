@@ -97,9 +97,31 @@ Investigate version-alignment strategies for a mobile app that depends on a back
 
 ---
 
-### Process Notes
+## Session: 2026-02-27 (revision)
 
-- Web searched: "API versioning strategies mobile app backend best practices" — good results from yrkan.com and daily.dev
-- Web searched: "Azure Container Apps multiple API versions revisions APIM routing patterns" — excellent MS Learn docs found
-- Web searched: "API deprecation policy Sunset header RFC 8594" — RFC 8594 confirmed; IETF draft on Deprecation header found
-- Web searched: "contract testing Pact consumer driven mobile API backward compatibility OpenAPI breaking changes" — Speakeasy Pact vs OpenAPI article very useful
+### Changes made in response to PR review
+
+**Decision: Replace APIM with Cloudflare Tunnel (`cloudflared`)**
+- Reason: APIM has significant cost (Developer tier ~$50/mo, Production tier ~$300/mo+); Cloudflare Tunnel is free/cheap and fits ACA's outbound-connectivity model well
+- Referenced article: https://medium.com/@asafshakarzy/deploy-and-protect-azure-container-apps-aca-with-cloudflare-024a42836317 (Medium, restricted; sourced technique from Cloudflare docs directly)
+- Key Cloudflare source: https://blog.cloudflare.com/many-services-one-cloudflared/ — path-based multi-service routing with one cloudflared instance
+- Ingress rules: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/configure-tunnels/local-management/ingress/
+
+**Architecture changes:**
+- `cloudflared-router` Container App with external ingress replaces APIM as the gateway
+- `api-v1` and `api-v2` Container Apps are now internal-only ingress (no public IPs)
+- Deprecation headers now injected by application middleware (not gateway policy), applied at the Container App level
+- Added alternative: hostname-per-version routing (api-v1.example.com, api-v2.example.com) — noted as less ideal since it breaks URL-path versioning convention
+
+**Decision: 410 Gone vs 426 Upgrade Required**
+- Researched RFC 9110 sections 15.5.11 (410) and 15.5.27 (426)
+- 426 is for protocol-level upgrade negotiation (HTTP version, TLS) — not for API versioning
+- 410 is the correct and industry-standard choice (used by Salesforce, Atlassian, GitHub)
+- 301/308 redirect noted as valid alternative only if new version is backward-compatible
+
+**Sections removed/replaced:**
+- Appendix C: APIM Routing Policy XML → replaced with Cloudflare Tunnel config.yaml
+- §6 Pattern C: "APIM Versions + Single Container App" → replaced with "Single Container App with internal version routing" + Cloudflare config
+- §3.6 tools table: APIM row → replaced with Cloudflare Tunnel row
+- All inline APIM policy references updated to Cloudflare/application-middleware alternatives
+
