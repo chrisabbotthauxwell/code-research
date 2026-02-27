@@ -16,6 +16,36 @@ from datetime import datetime, timezone
 # Model to use for generating summaries
 MODEL = "github/gpt-4.1"
 
+# Max characters to send to the model (~8k token limit at ~3 chars/token, conservative)
+MAX_SUMMARY_INPUT_CHARS = 24000
+# Minimum length for an extracted Executive Summary to be considered useful
+MIN_EXECUTIVE_SUMMARY_CHARS = 100
+
+
+def extract_summary_input(readme_text):
+    """Return the Executive Summary section if present, else first MAX_SUMMARY_INPUT_CHARS chars."""
+    lines = readme_text.splitlines(keepends=True)
+    # Find an "## Executive Summary" heading (case-insensitive, optional numeric prefix)
+    exec_summary_re = re.compile(r'^##\s+(?:\d+\.\s+)?executive\s+summary\s*$', re.IGNORECASE)
+    next_h2_re = re.compile(r'^##\s+', re.IGNORECASE)
+    start_idx = None
+    for i, line in enumerate(lines):
+        if exec_summary_re.match(line.rstrip()):
+            start_idx = i
+            break
+    if start_idx is not None:
+        # Capture from heading until next ## heading or EOF
+        end_idx = len(lines)
+        for i in range(start_idx + 1, len(lines)):
+            if next_h2_re.match(lines[i]):
+                end_idx = i
+                break
+        section = ''.join(lines[start_idx:end_idx]).strip()
+        if len(section) >= MIN_EXECUTIVE_SUMMARY_CHARS:
+            return section
+    # Fallback: first N characters
+    return readme_text[:MAX_SUMMARY_INPUT_CHARS]
+
 # Get all subdirectories with their first commit dates
 research_dir = pathlib.Path.cwd()
 subdirs_with_dates = []
@@ -101,9 +131,11 @@ for dirname, commit_date in subdirs_with_dates:
     elif readme_path.exists():
         # Generate new summary using llm command
         prompt = """Summarize this research project concisely. Write just 1 paragraph (3-5 sentences) followed by an optional short bullet list if there are key findings. Vary your opening - don't start with "This report" or "This research". Include 1-2 links to key tools/projects. Be specific but brief. No emoji."""
+        readme_text = readme_path.read_text()
+        summary_input = extract_summary_input(readme_text)
         result = subprocess.run(
             ['llm', '-m', MODEL, '-s', prompt],
-            stdin=open(readme_path),
+            input=summary_input,
             capture_output=True,
             text=True,
             timeout=60
