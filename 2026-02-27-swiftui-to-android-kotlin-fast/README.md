@@ -1,5 +1,10 @@
 # SwiftUI → Android: Shipping Native Kotlin/Jetpack Compose Fast
 
+<!-- AI-GENERATED-NOTE -->
+> [!NOTE]
+> This is an AI-generated research report. All text and code in this report was created by an LLM (Large Language Model). For more information on how these reports are created, see the [main research repository](https://github.com/simonw/research).
+<!-- /AI-GENERATED-NOTE -->
+
 **Research date:** 2026-02-27  
 **Context:** Existing iOS app (SwiftUI + Azure HTTP API). iOS-only team. Goal: ship Android MVP quickly with good UX parity. Long-term plan: separate native codebases (SwiftUI + Kotlin/Compose).
 
